@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Price of Knowledge</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ══════════════════════════════════════════════════════
+       MAP FULLSCREEN OVERLAY
+       Sits above everything when active, below the nav bar.
+    ══════════════════════════════════════════════════════ */
+    #mapOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      bottom: 48px;           /* leave room for the nav bar */
+      z-index: 50;
+      background: #0a0702;
+      overflow: hidden;
+      user-select: none;
+    }
+    #mapOverlay.map-active { display: block; }
+
+    /* ── The zoomable/pannable scene ── */
+    #mapScene {
+      position: absolute;
+      /* sized to image natural ratio; set by JS */
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    /* ── The map image — no object-fit tricks, natural size ── */
+    #mapScene img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── Fog canvas — pixel-perfect over the image ── */
+    #fogCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+    }
+
+    /* ── Pins — positioned in image px coords, counter-scaled ── */
+    #mapPins {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .map-pin {
+      position: absolute;
+      pointer-events: auto;
+      cursor: pointer;
+      /* counter-scale set via inline CSS var --iz (1/zoom) */
+      transform: translate(-50%, -50%) scale(var(--iz, 1));
+      transform-origin: center center;
+    }
+    .pin-circle {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cinzel', serif;
+      font-size: .65rem; font-weight: 700;
+    }
+    .pin-visited .pin-circle {
+      background: #c8a84b;
+      color: #1a1008;
+      border: 2px solid #f0d080;
+      box-shadow: 0 0 10px rgba(200,168,75,.9);
+    }
+    .pin-locked .pin-circle {
+      background: rgba(20,12,4,.75);
+      color: rgba(180,140,60,.3);
+      border: 2px solid rgba(180,140,60,.2);
+    }
+    .pin-tooltip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%; transform: translateX(-50%);
+      background: rgba(6,4,1,.96);
+      border: 1px solid rgba(180,140,60,.6);
+      color: #c8a84b;
+      font-family: 'Cinzel', serif;
+      font-size: .55rem; letter-spacing: .08em;
+      white-space: nowrap;
+      padding: 3px 9px; border-radius: 2px;
+      opacity: 0; pointer-events: none;
+      transition: opacity .18s;
+      z-index: 5;
+    }
+    .map-pin:hover .pin-tooltip { opacity: 1; }
+
+    /* ── HUD: zoom buttons + legend (top-right corner) ── */
+    #mapHud {
+      position: absolute;
+      top: 14px; right: 14px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .map-hud-panel {
+      background: rgba(8,5,1,.88);
+      border: 1px solid rgba(180,140,60,.4);
+      border-radius: 4px;
+      pointer-events: auto;
+      backdrop-filter: blur(4px);
+    }
+
+    /* zoom buttons */
+    .map-zoom-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px;
+    }
+    .map-zoom-btn {
+      width: 28px; height: 28px;
+      background: transparent;
+      border: none;
+      color: #c8a84b;
+      font-size: 1.1rem; line-height: 1;
+      cursor: pointer;
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .12s;
+    }
+    .map-zoom-btn:hover:not(:disabled) { background: rgba(200,168,75,.15); }
+    .map-zoom-btn:disabled { opacity: .28; cursor: default; }
+
+    /* legend */
+    .map-legend {
+      padding: 8px 10px;
+      min-width: 130px;
+    }
+    .map-legend-title {
+      font-family: 'Cinzel', serif;
+      font-size: .52rem; letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(180,140,60,.7);
+      margin-bottom: 6px;
+    }
+    .map-legend-row {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'Crimson Text', serif;
+      font-size: .72rem;
+      color: rgba(220,195,130,.9);
+      margin-bottom: 3px;
+    }
+    .map-legend-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: #c8a84b;
+      box-shadow: 0 0 4px rgba(200,168,75,.6);
+    }
+    .locked-dot  { background: rgba(180,140,60,.22); box-shadow: none; }
+    .locked-loc  { opacity: .45; }
+
+    /* title watermark */
+    #mapTitle {
+      position: absolute;
+      top: 14px; left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Cinzel', serif;
+      font-size: .62rem; letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(180,140,60,.55);
+      pointer-events: none;
+      z-index: 60;
+    }
+  
+.chapter-marker{
+position:absolute;
+left:42%;
+top:35%;
+transform:translate(-50%,-50%);
+pointer-events:none;
+z-index:65;
+}
+.chapter-marker .circle{
+width:42px;height:42px;border:3px solid #d4b15a;border-radius:50%;
+box-shadow:0 0 15px rgba(212,177,90,.8);
+margin:auto;background:rgba(0,0,0,.15);
+}
+.chapter-marker .label{
+margin-top:8px;
+font-family:'Cinzel',serif;
+color:#f0d080;
+font-size:.8rem;
+background:rgba(0,0,0,.6);
+padding:4px 8px;
+border:1px solid #d4b15a;
+white-space:nowrap;
+}
+
+</style>
+</head>
+<body>
+
+<div class="room-bg"></div>
+<div class="candle-light left"></div>
+<div class="candle-light right"></div>
+<div class="vignette"></div>
+
+<div id="bookWrapper" class="book-wrapper">
+
+  <!-- CLOSED BOOK -->
+  <div id="bookClosed" class="book-closed">
+    <div class="book-spine-closed"></div>
+    <div class="book-closed-cover">
+      <img src="imgback.png" alt="The Price of Knowledge" class="cover-img">
+      <button id="openBookBtn" class="open-book-btn">Open the Tome</button>
+    </div>
+  </div>
+
+  <!-- OPEN BOOK -->
+  <div id="bookOpen" class="book-open hidden">
+
+    <div class="page page-left">
+      <div class="gutter-shadow"></div>
+      <div class="page-content" id="pageLeftContent"></div>
+    </div>
+
+    <div class="book-binding">
+      <div class="binding-line"></div>
+      <div class="binding-stitch" style="top:9%"></div>
+      <div class="binding-stitch" style="top:20%"></div>
+      <div class="binding-stitch" style="top:33%"></div>
+      <div class="binding-stitch" style="top:46%"></div>
+      <div class="binding-stitch" style="top:59%"></div>
+      <div class="binding-stitch" style="top:72%"></div>
+      <div class="binding-stitch" style="top:85%"></div>
+      <div class="binding-stitch" style="top:93%"></div>
+    </div>
+
+    <div class="page page-right">
+      <div class="gutter-shadow"></div>
+      <div class="page-content" id="pageRightContent"></div>
+    </div>
+
+    <div id="pageFlapContainer" class="page-flap-container hidden">
+      <div id="pageFlap" class="page-flap">
+        <div class="flap-front"></div>
+        <div class="flap-back"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<nav id="bottomNav" class="bottom-nav hidden">
+  <button class="bnav-btn" id="btnBackward">&#8592; Back</button>
+  <div class="bnav-sep"></div>
+  <div class="bnav-tabs">
+    <button class="bnav-tab active" data-tab="chronicle">The Chronicle</button>
+        <button class="bnav-tab" data-tab="codex">Character Codex</button>
+    <button class="bnav-tab" data-tab="map">The Realm</button>
+  </div>
+  <div class="bnav-sep"></div>
+  <button class="bnav-btn" id="btnForward">Forward &#8594;</button>
+</nav>
+
+<div id="videoModal" class="video-modal hidden">
+  <div class="video-modal-inner">
+    <p class="video-label" id="videoLabel">Act I — Teaser</p>
+    <video id="modalVideo" playsinline></video>
+    <button id="skipVideoBtn" class="skip-btn">Skip ↠</button>
+  </div>
+</div>
+
+<!-- MAP FULLSCREEN OVERLAY -->
+<div id="mapOverlay">
+  <p id="mapTitle">The Realm</p>
+  <div id="mapScene">
+    <img id="mapImg" src="map.jpg" alt="Realm Map" draggable="false" />
+    <canvas id="fogCanvas"></canvas>
+    <div id="mapPins"></div>
+  </div>
+  
+</div>
+<div id="visionOverlay" class="vision-overlay">
+
+  <button class="vision-close" onclick="closeVision()">
+    ✕
+  </button>
+
+  <video
+      id="visionPlayer"
+      controls
+      controlsList="nodownload">
+  </video>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
