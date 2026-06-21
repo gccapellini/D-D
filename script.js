@@ -675,6 +675,13 @@ const chapterMusic = {
   "1-1-part1": new Audio("chapter1_part1.mp3"),
   "1-1-part2": new Audio("chapter1_part2.mp3")
 };
+const menuMusic = new Audio("menu.mp3");
+menuMusic.loop = true;
+menuMusic.volume = 0.25;
+
+document.addEventListener("click", () => {
+  playMenuMusic();
+}, { once:true });
 
 Object.values(chapterMusic).forEach(a => {
   a.loop = true;
@@ -706,7 +713,14 @@ function stopMusic() {
   currentMusic = null;
 }
 
+function playMenuMusic() {
 
+  if (!menuMusic.paused) return;
+
+  menuMusic.play().catch(() => {
+    console.log("Autoplay bloqueado pelo navegador.");
+  });
+}
 /* ─────────────────────────────────────────────────────
    DOM
 ───────────────────────────────────────────────────────── */
@@ -762,17 +776,25 @@ function turnPage(fwd, cb) {
    RENDER DISPATCHER
 ───────────────────────────────────────────────────────── */
 function render() {
+
+  const chapterMode =
+    (S.view === 'chapter') ||
+    (S.view === 'fragment');
+
+  if (chapterMode) {
+    menuMusic.pause();
+  } else {
+    playMenuMusic();
+  }
+
   if (S.tab === 'codex')             { renderCodex();   }
   else if (S.tab === 'tales')        { renderTales();   }
   else if (S.tab === 'map')          { renderMap();     }
   else if (S.view === 'acts')        { renderActs();    }
   else if (S.view === 'act')         { renderAct();     }
-  else if (S.view === 'chapter') {
-  renderChapter();
-}
-else if (S.view === 'fragment') {
-  renderFragment();
-}
+  else if (S.view === 'chapter')     { renderChapter(); }
+  else if (S.view === 'fragment')    { renderFragment(); }
+
   syncNav();
 }
 
@@ -1247,21 +1269,29 @@ function renderCodex() {
   });
 }
 function openVision(file) {
+
+  menuMusic.pause();
+
   const overlay = document.getElementById("visionOverlay");
   const player  = document.getElementById("visionPlayer");
 
   player.src = file;
   overlay.classList.add("active");
+
   player.play();
 }
 
 function closeVision() {
+
   const overlay = document.getElementById("visionOverlay");
   const player  = document.getElementById("visionPlayer");
 
   player.pause();
   player.src = "";
+
   overlay.classList.remove("active");
+
+  playMenuMusic();
 }
 /* ─────────────────────────────────────────────────────
    NAV SYNC
