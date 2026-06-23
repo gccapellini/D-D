@@ -1694,3 +1694,14 @@ function romanize(n) {
            50,'L',40,'XL',10,'X',9,'IX',5,'V',4,'IV',1,'I'];
   let r=''; for(let i=0;i<v.length;i+=2) while(n>=v[i]){r+=v[i+1];n-=v[i];} return r;
 }
+
+window.addEventListener('resize', () => {
+
+  if (!document.getElementById('mapOverlay')?.classList.contains('map-active'))
+    return;
+
+  mapFitToViewport();
+  drawFogOfWar();
+  placePins();
+
+});

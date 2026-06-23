@@ -75,8 +75,9 @@ html, body {
   perspective:2400px;
 }
 .cover-img {
-  width: 380px; /* Altere o número como preferir */
-  height: 530px;  /* Mantém a proporção original */
+  width: 85vw;
+  max-width: 380px;
+  height: auto;
 }
 
 .vision-entry{
@@ -259,10 +260,24 @@ html, body {
 
 /* page content — NO overflow, fixed like real pages */
 .page-content {
-  position:absolute; inset:0; z-index:1;
+  position:absolute;
+  inset:0;
+  z-index:1;
   padding:2.5rem 2.3rem 2.6rem 2.5rem;
-  overflow:hidden;
-  display:flex; flex-direction:column;
+
+  overflow-y:auto;
+  overflow-x:hidden;
+
+  display:flex;
+  flex-direction:column;
+}
+
+.page-content::-webkit-scrollbar {
+  width: 0;
+}
+
+.page-content {
+  scrollbar-width: none;
 }
 
 /* ── BINDING ── */
@@ -669,8 +684,8 @@ html, body {
 ───────────────────────────────────── */
 @media(max-width:680px) {
   .book-open { flex-direction:column; width:95vw; height:auto; }
-  .page-left  { border-radius:5px 5px 0 0; min-height:330px; }
-  .page-right { border-radius:0 0 5px 5px; min-height:330px; }
+  .page-left  { border-radius:5px 5px 0 0; min-height:50vh; }
+  .page-right { border-radius:0 0 5px 5px; min-height:50vh; }
   .book-binding { width:100%; height:14px; }
   .binding-line { top:50%; left:0; right:0; width:auto; height:1px; transform:translateY(-50%); }
   .bottom-nav { height:44px; }
