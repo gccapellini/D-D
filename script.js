@@ -1522,7 +1522,21 @@ function mapZoomAt(newZoom, vpX, vpY) {
 function drawFogOfWar() {
   const canvas = document.getElementById('fogCanvas');
   if (!canvas || !_map.imgW) return;
-  const W = _map.imgW, H = _map.imgH;
+
+  // Mobile browsers (Safari/Chrome) silently fail to allocate canvases
+  // above ~16-17 megapixels (or a single dimension above ~4096px on
+  // many GPUs). Our map image is 10200x6600 (~67MP), which works fine
+  // as a plain <img> but breaks as a <canvas> on phones. So we draw the
+  // fog at a capped resolution and let CSS (width/height:100%) stretch
+  // it back over the full image — invisible quality loss since the fog
+  // is just a soft gradient with no fine detail.
+  const MAX_DIM = 4000;
+  let W = _map.imgW, H = _map.imgH;
+  if (W > MAX_DIM || H > MAX_DIM) {
+    const s = Math.min(MAX_DIM / W, MAX_DIM / H);
+    W = Math.round(W * s);
+    H = Math.round(H * s);
+  }
   canvas.width  = W;
   canvas.height = H;
 
