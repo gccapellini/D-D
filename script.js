@@ -1462,8 +1462,10 @@ _map.MIN = fit;
 _map.zoom = fit * 2.6;   // aproxima o mapa
 
 // Coordenadas aproximadas de Waterdeep no mapa
-const waterdeepX = 1040;
-const waterdeepY = 720;
+// (em % do tamanho da imagem, não pixels fixos — assim continua
+// correto mesmo se a imagem do mapa for redimensionada/trocada)
+const waterdeepX = (1040 / 10200) * _map.imgW;
+const waterdeepY = (720  / 6600)  * _map.imgH;
 
 // centraliza Waterdeep na tela
 _map.panX = (_map.vpW / 2) - (waterdeepX * _map.zoom);
