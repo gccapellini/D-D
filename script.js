@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    THE PRICE OF KNOWLEDGE — script.js
-   Physical book: NO scroll. Fixed spreads per chapter.
+   Physical book: NO scroll. Fixed spreads per chapter. UPDATED
 ═══════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────
@@ -1391,10 +1391,25 @@ function showVideo(src, label, onDone) {
 const MAP_LOCATIONS = [
   {
     id:1,
-    label:"Chapter 1: An Investigation of the Past",
+    label:"Act I: An Investigation of the Past",
     x:45.5,
     y:37,
-    spreadUnlock:0
+    spreadUnlock:0,
+    description:"The past casts a long shadow. A message from beyond the grave sets our heroes on a path through forgotten rooms, forbidden archives, and the haunted roads between worlds.",
+    chapters:[
+      {
+        id:1,
+        title:"The Old Master\u2019s Room",
+        description:"A spectral message stirs four weary souls from their rest, drawing them into a study long thought sealed.",
+        action:{ type:"chronicle", actId:1, chapterId:1 }
+      },
+      {
+        id:2,
+        title:"The Last Dragon Apprentice",
+        description:"The road leads onward to a apprentice bound to a dying dragon\u2019s legacy.",
+        action:{ type:"scene", href:"scene.html" }
+      }
+    ]
   },
 ];
 const MAP_PROGRESS = 0;
@@ -1434,6 +1449,7 @@ function showMapOverlay() {
 
 function hideMapOverlay() {
   document.getElementById('mapOverlay')?.classList.remove('map-active');
+  closeMapNodeModal();
 }
 
 /* ─────────────────────────────────────────────────────
@@ -1593,7 +1609,75 @@ function placePins() {
               <div class="pin-tooltip">${vis ? l.label : '???'}</div>
             </div>`;
   }).join('');
+  pinsEl.querySelectorAll('.map-pin.pin-visited').forEach(p => {
+    p.addEventListener('click', () => {
+      const loc = MAP_LOCATIONS.find(l => l.id === parseInt(p.dataset.id));
+      if (loc) openMapNodeModal(loc);
+    });
+  });
   mapApplyTransform();
+}
+
+/* ─────────────────────────────────────────────────────
+   MAP NODE MODAL
+   Opens when a visited pin is clicked. Shows the node's
+   description plus a "Start" entry per chapter.
+───────────────────────────────────────────────────────── */
+function openMapNodeModal(loc) {
+  const modal = document.getElementById('mapNodeModal');
+  if (!modal) return;
+  modal.innerHTML = `
+    <div class="mnm-inner">
+      <button class="mnm-close" id="mnmClose">\u2715</button>
+      <p class="mnm-label">${loc.label}</p>
+      <p class="mnm-desc">${loc.description || ''}</p>
+      <div class="mnm-chapters">
+        ${loc.chapters.map(ch => `
+          <div class="mnm-chapter">
+            <div class="mnm-chapter-info">
+              <h4>Chapter ${romanize(ch.id)}: ${ch.title}</h4>
+              <p>${ch.description || ''}</p>
+            </div>
+            <button class="mnm-start" data-ch="${ch.id}">Start</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  modal.classList.add('mnm-active');
+
+  modal.querySelector('#mnmClose').addEventListener('click', closeMapNodeModal);
+  modal.querySelectorAll('.mnm-start').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ch = loc.chapters.find(c => c.id === parseInt(btn.dataset.ch));
+      if (ch) startMapChapter(ch);
+    });
+  });
+}
+
+function closeMapNodeModal() {
+  const modal = document.getElementById('mapNodeModal');
+  if (!modal) return;
+  modal.classList.remove('mnm-active');
+}
+
+function startMapChapter(ch) {
+  const action = ch.action;
+  if (!action) return;
+  if (action.type === 'scene') {
+    window.location.href = action.href;
+    return;
+  }
+  if (action.type === 'chronicle') {
+    closeMapNodeModal();
+    hideMapOverlay();
+    S.tab = 'chronicle';
+    S.actId = action.actId;
+    S.chapterId = action.chapterId;
+    S.view = 'chapter';
+    S.spreadIdx = 0;
+    render();
+  }
 }
 
 /* ─────────────────────────────────────────────────────
