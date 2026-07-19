@@ -8,7 +8,7 @@
   <style>
     /* ══════════════════════════════════════════════════════
        MAP FULLSCREEN OVERLAY
-       Sits above everything when active, below the nav bar.
+       Sits above everything when active, below the nav bar. Updated
     ══════════════════════════════════════════════════════ */
     #mapOverlay {
       display: none;
@@ -163,6 +163,109 @@
     .locked-dot  { background: rgba(180,140,60,.22); box-shadow: none; }
     .locked-loc  { opacity: .45; }
 
+    /* ── Node modal — shown when a visited pin is clicked ── */
+    #mapNodeModal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 70;
+      align-items: center;
+      justify-content: center;
+      background: rgba(4,2,0,.72);
+    }
+    #mapNodeModal.mnm-active { display: flex; }
+
+    .mnm-inner {
+      position: relative;
+      width: min(480px, 88vw);
+      max-height: 78vh;
+      overflow-y: auto;
+      background: rgba(10,6,2,.97);
+      border: 1px solid rgba(180,140,60,.5);
+      border-radius: 6px;
+      padding: 22px 22px 18px;
+      box-shadow: 0 0 30px rgba(0,0,0,.6);
+    }
+
+    .mnm-close {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: transparent;
+      border: none;
+      color: rgba(200,168,75,.8);
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .mnm-close:hover { color: #f0d080; }
+
+    .mnm-label {
+      font-family: 'Cinzel', serif;
+      font-size: .82rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #c8a84b;
+      margin: 0 26px 8px 0;
+    }
+
+    .mnm-desc {
+      font-family: 'Crimson Text', serif;
+      font-size: .85rem;
+      line-height: 1.5;
+      font-style: italic;
+      color: rgba(220,195,130,.85);
+      margin-bottom: 16px;
+    }
+
+    .mnm-chapters {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mnm-chapter {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(180,140,60,.25);
+      border-radius: 4px;
+      background: rgba(200,168,75,.04);
+    }
+
+    .mnm-chapter-info h4 {
+      font-family: 'Cinzel', serif;
+      font-size: .72rem;
+      letter-spacing: .04em;
+      color: #e2c987;
+      margin: 0 0 4px;
+    }
+
+    .mnm-chapter-info p {
+      font-family: 'Crimson Text', serif;
+      font-size: .75rem;
+      line-height: 1.4;
+      color: rgba(210,190,150,.75);
+      margin: 0;
+    }
+
+    .mnm-start {
+      flex-shrink: 0;
+      margin-left: auto;
+      font-family: 'Cinzel', serif;
+      font-size: .62rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #1a1008;
+      background: #c8a84b;
+      border: 1px solid #f0d080;
+      border-radius: 3px;
+      padding: 7px 14px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .mnm-start:hover { background: #e2c987; }
+
     /* title watermark */
     #mapTitle {
       position: absolute;
@@ -261,7 +364,7 @@
     <canvas id="fogCanvas"></canvas>
     <div id="mapPins"></div>
   </div>
-  
+  <div id="mapNodeModal"></div>
 </div>
 <div id="visionOverlay" class="vision-overlay">
 

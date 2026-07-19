@@ -4,7 +4,7 @@
 ═══════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────
-   SPREAD DATA
+   SPREAD DATA UPDATED
    Each spread = { left: PageDef, right: PageDef }
    PageDef = { runHead, blocks: [...] }
    block types: orn | actLabel | chTitle | subTitle |
