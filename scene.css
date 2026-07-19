@@ -241,7 +241,7 @@ html, body {
 
 .map-token img {
   display: block;
-  width: var(--tok-width, 130px);
+  width: calc(var(--tok-width, 130px) * var(--tok-scale, 1));
   height: auto;
   pointer-events: none;
   user-select: none;
@@ -254,6 +254,31 @@ html, body {
   filter: drop-shadow(0 0 12px var(--tok-color, rgba(200,168,75,.9)))
           drop-shadow(0 3px 5px rgba(0,0,0,.6));
 }
+.map-token.resizing img { transition: none; }
+
+/* ── Resize handle — bottom-right corner, drag to scale the token ── */
+.token-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  transform: translate(40%, 40%);
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid rgba(6,4,1,.9);
+  box-shadow: 0 0 4px rgba(0,0,0,.6);
+  cursor: nwse-resize;
+  opacity: .55;
+  transition: opacity .15s, transform .15s;
+  pointer-events: auto;
+  touch-action: none;
+}
+.map-token:hover .token-resize-handle,
+.map-token.resizing .token-resize-handle {
+  opacity: 1;
+}
+.map-token.resizing .token-resize-handle { transform: translate(40%, 40%) scale(1.15); }
 
 .map-token-name {
   position: absolute;
