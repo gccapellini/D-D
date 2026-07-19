@@ -15,7 +15,6 @@ const FLOORS = [
   { id: 2,   name: "Andar 2", img: "Andar2.png",   unlocked: true },
   { id: 3,   name: "Andar 3", img: "Andar3.png",   unlocked: true },
   { id: 4,   name: "Andar 4", img: "Andar4.png",   unlocked: true },
-  ,
 ];
 
 const TOKENS = [
@@ -26,7 +25,10 @@ const TOKENS = [
   { id: "gor", name: "Gor",     img: "token_gor.png", color: "#c0503a" },
 ];
 
-const TOKEN_WIDTH = 130; // px, in map-image space — tweak to taste
+const TOKEN_WIDTH = 70; // px, in map-image space — tweak to taste
+const TOKEN_SCALE_MIN = 0.4;
+const TOKEN_SCALE_MAX = 2.2;
+const TOKEN_SCALE_DEFAULT = 1;
 
 /* ─────────────────────────────────────────────────────
    STATE
@@ -52,6 +54,14 @@ const _tokenMove = {
   active: false,   // moving an EXISTING token already on the map
   uid: null,
   el: null,
+};
+
+const _tokenResize = {
+  active: false,   // resizing an EXISTING token via its handle
+  uid: null,
+  el: null,
+  startX: 0,
+  startScale: 1,
 };
 
 /* ─────────────────────────────────────────────────────
@@ -210,17 +220,21 @@ function buildTokenEl(placed) {
   const char = TOKENS.find(t => t.id === placed.charId);
   if (!char) return document.createComment('unknown token');
 
+  const scale = placed.scale ?? TOKEN_SCALE_DEFAULT;
+
   const el = document.createElement('div');
   el.className = 'map-token';
   el.dataset.uid = placed.uid;
   el.style.setProperty('--tok-color', char.color);
   el.style.setProperty('--tok-width', TOKEN_WIDTH + 'px');
+  el.style.setProperty('--tok-scale', scale);
   el.style.left = placed.x + 'px';
   el.style.top  = placed.y + 'px';
   el.style.zIndex = Math.round(placed.y);
   el.innerHTML = `
     <div class="map-token-name">${char.name}</div>
     <img src="${char.img}" alt="${char.name}" draggable="false" />
+    <div class="token-resize-handle" title="Arrastar para redimensionar"></div>
   `;
 
   el.addEventListener('pointerdown', e => {
@@ -232,6 +246,14 @@ function buildTokenEl(placed) {
   el.addEventListener('contextmenu', e => {
     e.preventDefault();
     removeToken(placed.uid);
+  });
+
+  const handle = el.querySelector('.token-resize-handle');
+  handle.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startTokenResize(placed.uid, el, e.clientX);
   });
 
   return el;
@@ -287,6 +309,7 @@ function onTrayDragEnd(e) {
       charId: _tokenDrag.charId,
       x: Math.round(pos.x),
       y: Math.round(pos.y),
+      scale: TOKEN_SCALE_DEFAULT,
     });
     savePlacedTokens();
     renderPlacedTokens();
@@ -335,6 +358,54 @@ function onTokenMoveEnd(e) {
   _tokenMove.active = false;
   _tokenMove.uid = null;
   _tokenMove.el = null;
+}
+
+/* ─────────────────────────────────────────────────────
+   RESIZE AN EXISTING TOKEN VIA ITS CORNER HANDLE
+───────────────────────────────────────────────────────── */
+function startTokenResize(uid, el, clientX) {
+  const rec = placedTokens.find(p => p.uid === uid);
+  if (!rec) return;
+  _tokenResize.active = true;
+  _tokenResize.uid = uid;
+  _tokenResize.el = el;
+  _tokenResize.startX = clientX;
+  _tokenResize.startScale = rec.scale ?? TOKEN_SCALE_DEFAULT;
+  el.classList.add('resizing');
+
+  window.addEventListener('pointermove', onTokenResizeDrag);
+  window.addEventListener('pointerup', onTokenResizeEnd);
+}
+
+function onTokenResizeDrag(e) {
+  if (!_tokenResize.active) return;
+  // Convert the screen-space drag distance into image space so the
+  // resize feels consistent no matter how zoomed in/out the map is.
+  const deltaImg = (e.clientX - _tokenResize.startX) / _view.zoom;
+  let newScale = _tokenResize.startScale + deltaImg / TOKEN_WIDTH;
+  newScale = Math.min(TOKEN_SCALE_MAX, Math.max(TOKEN_SCALE_MIN, newScale));
+  _tokenResize.el.style.setProperty('--tok-scale', newScale);
+}
+
+function onTokenResizeEnd(e) {
+  if (!_tokenResize.active) return;
+  window.removeEventListener('pointermove', onTokenResizeDrag);
+  window.removeEventListener('pointerup', onTokenResizeEnd);
+  _tokenResize.el.classList.remove('resizing');
+
+  const deltaImg = (e.clientX - _tokenResize.startX) / _view.zoom;
+  let newScale = _tokenResize.startScale + deltaImg / TOKEN_WIDTH;
+  newScale = Math.min(TOKEN_SCALE_MAX, Math.max(TOKEN_SCALE_MIN, newScale));
+
+  const rec = placedTokens.find(p => p.uid === _tokenResize.uid);
+  if (rec) {
+    rec.scale = newScale;
+    savePlacedTokens();
+  }
+
+  _tokenResize.active = false;
+  _tokenResize.uid = null;
+  _tokenResize.el = null;
 }
 
 /* ─────────────────────────────────────────────────────
