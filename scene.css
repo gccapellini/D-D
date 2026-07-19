@@ -78,6 +78,17 @@ html, body {
   gap: 6px;
 }
 
+.scene-sync-status {
+  font-family: 'Cinzel', serif;
+  font-size: .58rem;
+  letter-spacing: .05em;
+  color: rgba(200,175,120,.6);
+  white-space: nowrap;
+}
+.scene-sync-status.online { color: #7fbf6a; }
+.scene-sync-status.solo   { color: var(--gold-dim); }
+.scene-sync-status.offline { color: rgba(200,120,90,.85); }
+
 .floor-tab {
   font-family: 'Cinzel', serif;
   font-size: .62rem;

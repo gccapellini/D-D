@@ -1,9 +1,28 @@
 /* ═══════════════════════════════════════════════════════
    SCENE.JS — Chapter II VTT-style map viewer
-   Phase 2: tokens can be dragged from the tray onto the
-   map, moved freely, removed, and their positions persist
-   (per floor) in localStorage.
+   Phase 3: tokens can be dragged from the tray onto the
+   map, moved freely, resized, and removed. Their state now
+   syncs live between everyone on the page via Yjs + WebRTC
+   — no backend server of our own, just a public signaling
+   relay that only helps peers find each other; the token
+   data itself flows directly browser-to-browser.
 ═══════════════════════════════════════════════════════ */
+
+import * as Y from 'https://esm.sh/yjs@13.6.31';
+import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.3.0?deps=yjs@13.6.31';
+
+/* ─────────────────────────────────────────────────────
+   LIVE SYNC CONFIG
+   ROOM_NAME identifies this "table" to the signaling
+   server — anyone who loads this page joins the same
+   room automatically. ROOM_PASSWORD just encrypts the
+   traffic between peers; change both to whatever you
+   like (they just need to match for everyone using the
+   same table).
+───────────────────────────────────────────────────────── */
+const ROOM_NAME     = 'pok-dnd-price-of-knowledge-scene-tokens-v1';
+const ROOM_PASSWORD = 'ravens-and-runeblades';
+
 
 /* ─────────────────────────────────────────────────────
    DATA
@@ -74,6 +93,7 @@ const floorTabsEl   = document.getElementById('floorTabs');
 const tokenTrayEl   = document.getElementById('tokenTrayList');
 const tokenLayerEl  = document.getElementById('sceneTokenLayer');
 const clearBtn      = document.getElementById('clearFloorBtn');
+const syncStatusEl  = document.getElementById('syncStatus');
 const ghostEl        = ensureGhostEl();
 const hintEl          = ensureHintEl();
 
@@ -93,22 +113,57 @@ function ensureHintEl() {
 }
 
 /* ─────────────────────────────────────────────────────
-   PERSISTENCE
+   LIVE SYNC — shared state instead of localStorage
+   Every placed token is one entry in a shared Y.Map,
+   keyed by "<floorId>:<uid>". Because each token is its
+   own entry, two people moving different tokens at the
+   same instant never clobber each other. y-webrtc keeps
+   every open tab in sync directly, peer-to-peer.
 ───────────────────────────────────────────────────────── */
-function storageKey(floorId) { return `pok_scene_tokens_floor_${floorId}`; }
+const ydoc = new Y.Doc();
+const tokensMap = ydoc.getMap('placedTokens');
+const provider = new WebrtcProvider(ROOM_NAME, ydoc, { password: ROOM_PASSWORD });
 
-function loadPlacedTokens(floorId) {
-  try {
-    const raw = localStorage.getItem(storageKey(floorId));
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) { return []; }
+function tokenKey(floorId, uid) { return `${floorId}:${uid}`; }
+
+function getTokensForFloor(floorId) {
+  const prefix = `${floorId}:`;
+  const out = [];
+  tokensMap.forEach((val, key) => {
+    if (key.startsWith(prefix)) out.push({ uid: key.slice(prefix.length), ...val });
+  });
+  return out;
 }
 
-function savePlacedTokens() {
-  try {
-    localStorage.setItem(storageKey(currentFloorId), JSON.stringify(placedTokens));
-  } catch (e) { /* storage unavailable — fail silently */ }
+function setToken(floorId, uid, data) {
+  tokensMap.set(tokenKey(floorId, uid), data);
 }
+
+function deleteToken(floorId, uid) {
+  tokensMap.delete(tokenKey(floorId, uid));
+}
+
+// Whenever the shared map changes — from us or from anyone
+// else connected — refresh what's on screen for this floor.
+tokensMap.observe(() => {
+  placedTokens = getTokensForFloor(currentFloorId);
+  renderPlacedTokens();
+});
+
+/* ── Connection status badge ── */
+function updateSyncStatus() {
+  const others = Math.max(0, provider.awareness.getStates().size - 1);
+  if (others > 0) {
+    syncStatusEl.textContent = `● Sincronizado — ${others} jogador${others > 1 ? 'es' : ''} online`;
+    syncStatusEl.className = 'scene-sync-status online';
+  } else {
+    syncStatusEl.textContent = '● Sincronizado — aguardando outros jogadores';
+    syncStatusEl.className = 'scene-sync-status solo';
+  }
+}
+provider.awareness.setLocalStateField('joinedAt', Date.now());
+provider.awareness.on('change', updateSyncStatus);
+updateSyncStatus();
 
 /* ─────────────────────────────────────────────────────
    FLOOR TABS
@@ -134,7 +189,7 @@ function renderFloorTabs() {
    LOAD FLOOR IMAGE + FIT VIEWPORT
 ───────────────────────────────────────────────────────── */
 function loadFloor(floor) {
-  placedTokens = loadPlacedTokens(floor.id);
+  placedTokens = getTokensForFloor(floor.id);
   mapImgEl.onload = () => {
     _view.imgW = mapImgEl.naturalWidth;
     _view.imgH = mapImgEl.naturalHeight;
@@ -260,9 +315,7 @@ function buildTokenEl(placed) {
 }
 
 function removeToken(uid) {
-  placedTokens = placedTokens.filter(p => p.uid !== uid);
-  savePlacedTokens();
-  renderPlacedTokens();
+  deleteToken(currentFloorId, uid);
 }
 
 /* ─────────────────────────────────────────────────────
@@ -304,15 +357,13 @@ function onTrayDragEnd(e) {
 
   if (overMap) {
     const pos = screenToImage(e.clientX, e.clientY);
-    placedTokens.push({
-      uid: 'tok_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    const uid = 'tok_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    setToken(currentFloorId, uid, {
       charId: _tokenDrag.charId,
       x: Math.round(pos.x),
       y: Math.round(pos.y),
       scale: TOKEN_SCALE_DEFAULT,
     });
-    savePlacedTokens();
-    renderPlacedTokens();
     hintEl.style.display = 'none';
   }
 
@@ -348,11 +399,13 @@ function onTokenMoveEnd(e) {
   _tokenMove.el.classList.remove('dragging');
 
   const pos = screenToImage(e.clientX, e.clientY);
-  const rec = placedTokens.find(p => p.uid === _tokenMove.uid);
-  if (rec) {
-    rec.x = Math.round(pos.x);
-    rec.y = Math.round(pos.y);
-    savePlacedTokens();
+  const existing = tokensMap.get(tokenKey(currentFloorId, _tokenMove.uid));
+  if (existing) {
+    setToken(currentFloorId, _tokenMove.uid, {
+      ...existing,
+      x: Math.round(pos.x),
+      y: Math.round(pos.y),
+    });
   }
 
   _tokenMove.active = false;
@@ -397,10 +450,9 @@ function onTokenResizeEnd(e) {
   let newScale = _tokenResize.startScale + deltaImg / TOKEN_WIDTH;
   newScale = Math.min(TOKEN_SCALE_MAX, Math.max(TOKEN_SCALE_MIN, newScale));
 
-  const rec = placedTokens.find(p => p.uid === _tokenResize.uid);
-  if (rec) {
-    rec.scale = newScale;
-    savePlacedTokens();
+  const existing = tokensMap.get(tokenKey(currentFloorId, _tokenResize.uid));
+  if (existing) {
+    setToken(currentFloorId, _tokenResize.uid, { ...existing, scale: newScale });
   }
 
   _tokenResize.active = false;
@@ -414,9 +466,7 @@ function onTokenResizeEnd(e) {
 clearBtn.addEventListener('click', () => {
   if (!placedTokens.length) return;
   if (!confirm('Remove all tokens from this floor?')) return;
-  placedTokens = [];
-  savePlacedTokens();
-  renderPlacedTokens();
+  placedTokens.forEach(t => deleteToken(currentFloorId, t.uid));
 });
 
 /* ─────────────────────────────────────────────────────
