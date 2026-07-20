@@ -1,27 +1,41 @@
 /* ═══════════════════════════════════════════════════════
    SCENE.JS — Chapter II VTT-style map viewer
-   Phase 3: tokens can be dragged from the tray onto the
+   Phase 4: tokens can be dragged from the tray onto the
    map, moved freely, resized, and removed. Their state now
-   syncs live between everyone on the page via Yjs + WebRTC
-   — no backend server of our own, just a public signaling
-   relay that only helps peers find each other; the token
-   data itself flows directly browser-to-browser.
+   syncs live between everyone through Firebase Realtime
+   Database — a managed service (Google's infrastructure,
+   not ours), swapped in after the peer-to-peer (Yjs +
+   WebRTC) version proved unreliable on real-world networks
+   (the free public signaling servers it depended on kept
+   flaking out).
 ═══════════════════════════════════════════════════════ */
 
-import * as Y from 'https://esm.sh/yjs@13.6.31';
-import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.3.0?deps=yjs@13.6.31';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import {
+  getDatabase, ref, onValue, set, remove, onDisconnect,
+} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 
 /* ─────────────────────────────────────────────────────
-   LIVE SYNC CONFIG
-   ROOM_NAME identifies this "table" to the signaling
-   server — anyone who loads this page joins the same
-   room automatically. ROOM_PASSWORD just encrypts the
-   traffic between peers; change both to whatever you
-   like (they just need to match for everyone using the
-   same table).
+   FIREBASE CONFIG
+   These values aren't secret — they just identify the
+   project publicly. The real protection is the Realtime
+   Database's security rules (set in the Firebase console),
+   not these keys.
 ───────────────────────────────────────────────────────── */
-const ROOM_NAME     = 'pok-dnd-price-of-knowledge-scene-tokens-v1';
-const ROOM_PASSWORD = 'ravens-and-runeblades';
+const firebaseConfig = {
+  apiKey: "AIzaSyAUCY7Qb2lhT05zOtJ6e7UtTUpQNwMLh-o",
+  authDomain: "the-price-of-knowledge.firebaseapp.com",
+  databaseURL: "https://the-price-of-knowledge-default-rtdb.firebaseio.com",
+  projectId: "the-price-of-knowledge",
+  storageBucket: "the-price-of-knowledge.firebasestorage.app",
+  messagingSenderId: "731864997355",
+  appId: "1:731864997355:web:ae8e5543b64cec298b4dae",
+};
+
+// Namespaces everything under one "table" in the database, in
+// case you ever want to run a second, independent game session
+// without the data mixing together.
+const TABLE_ID = 'main-table';
 
 /* ─────────────────────────────────────────────────────
    MASTER-ONLY ENEMY ROSTER
@@ -184,46 +198,57 @@ function ensureHintEl() {
 }
 
 /* ─────────────────────────────────────────────────────
-   LIVE SYNC — shared state instead of localStorage
-   Every placed token is one entry in a shared Y.Map,
-   keyed by "<floorId>:<uid>". Because each token is its
-   own entry, two people moving different tokens at the
-   same instant never clobber each other. y-webrtc keeps
-   every open tab in sync directly, peer-to-peer.
+   LIVE SYNC — Firebase Realtime Database
+   Each floor's tokens live at tables/<TABLE_ID>/tokens/<floorId>,
+   one child per token (keyed by uid). Firebase pushes changes to
+   every connected client the instant they happen — including our
+   own writes bouncing back — so `placedTokens` and the DOM are
+   always just a reflection of whatever's currently in the database.
 ───────────────────────────────────────────────────────── */
-const ydoc = new Y.Doc();
-const tokensMap = ydoc.getMap('placedTokens');
-const provider = new WebrtcProvider(ROOM_NAME, ydoc, { password: ROOM_PASSWORD });
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
 
-function tokenKey(floorId, uid) { return `${floorId}:${uid}`; }
-
-function getTokensForFloor(floorId) {
-  const prefix = `${floorId}:`;
-  const out = [];
-  tokensMap.forEach((val, key) => {
-    if (key.startsWith(prefix)) out.push({ uid: key.slice(prefix.length), ...val });
-  });
-  return out;
-}
+function tokensRefForFloor(floorId) { return ref(db, `tables/${TABLE_ID}/tokens/${floorId}`); }
+function tokenRef(floorId, uid)     { return ref(db, `tables/${TABLE_ID}/tokens/${floorId}/${uid}`); }
 
 function setToken(floorId, uid, data) {
-  tokensMap.set(tokenKey(floorId, uid), data);
+  set(tokenRef(floorId, uid), data);
 }
 
 function deleteToken(floorId, uid) {
-  tokensMap.delete(tokenKey(floorId, uid));
+  remove(tokenRef(floorId, uid));
 }
 
-// Whenever the shared map changes — from us or from anyone
-// else connected — refresh what's on screen for this floor.
-tokensMap.observe(() => {
-  placedTokens = getTokensForFloor(currentFloorId);
-  renderPlacedTokens();
+// Only one floor's worth of tokens is "live" at a time — whenever
+// the current floor changes we detach the old listener and attach
+// a fresh one, so we're not paying to listen to floors nobody's on.
+let _detachTokenListener = null;
+function subscribeToFloorTokens(floorId) {
+  if (_detachTokenListener) _detachTokenListener();
+  _detachTokenListener = onValue(tokensRefForFloor(floorId), snapshot => {
+    const val = snapshot.val() || {};
+    placedTokens = Object.entries(val).map(([uid, data]) => ({ uid, ...data }));
+    renderPlacedTokens();
+  });
+}
+
+/* ── Connection status badge (Firebase's presence pattern) ── */
+const CLIENT_ID = crypto.randomUUID();
+const presenceRef     = ref(db, `tables/${TABLE_ID}/presence/${CLIENT_ID}`);
+const presenceListRef = ref(db, `tables/${TABLE_ID}/presence`);
+const connectedRef    = ref(db, '.info/connected');
+
+onValue(connectedRef, snap => {
+  if (snap.val() !== true) return;
+  // If this client disconnects (closes the tab, loses network),
+  // Firebase itself removes our presence entry — no cleanup code
+  // needed on our end, and it works even if the tab just crashes.
+  onDisconnect(presenceRef).remove().then(() => set(presenceRef, true));
 });
 
-/* ── Connection status badge ── */
-function updateSyncStatus() {
-  const others = Math.max(0, provider.awareness.getStates().size - 1);
+onValue(presenceListRef, snap => {
+  const total = snap.exists() ? Object.keys(snap.val()).length : 0;
+  const others = Math.max(0, total - 1);
   if (others > 0) {
     syncStatusEl.textContent = `● Sincronizado — ${others} jogador${others > 1 ? 'es' : ''} online`;
     syncStatusEl.className = 'scene-sync-status online';
@@ -231,10 +256,7 @@ function updateSyncStatus() {
     syncStatusEl.textContent = '● Sincronizado — aguardando outros jogadores';
     syncStatusEl.className = 'scene-sync-status solo';
   }
-}
-provider.awareness.setLocalStateField('joinedAt', Date.now());
-provider.awareness.on('change', updateSyncStatus);
-updateSyncStatus();
+});
 
 /* ─────────────────────────────────────────────────────
    FLOOR TABS
@@ -260,7 +282,7 @@ function renderFloorTabs() {
    LOAD FLOOR IMAGE + FIT VIEWPORT
 ───────────────────────────────────────────────────────── */
 function loadFloor(floor) {
-  placedTokens = getTokensForFloor(floor.id);
+  subscribeToFloorTokens(floor.id);
   mapImgEl.onload = () => {
     _view.imgW = mapImgEl.naturalWidth;
     _view.imgH = mapImgEl.naturalHeight;
@@ -542,10 +564,11 @@ function onTokenMoveEnd(e) {
   _tokenMove.el.classList.remove('dragging');
 
   const pos = screenToImage(e.clientX, e.clientY);
-  const existing = tokensMap.get(tokenKey(currentFloorId, _tokenMove.uid));
+  const existing = placedTokens.find(p => p.uid === _tokenMove.uid);
   if (existing) {
     setToken(currentFloorId, _tokenMove.uid, {
-      ...existing,
+      charId: existing.charId,
+      scale: existing.scale,
       x: Math.round(pos.x),
       y: Math.round(pos.y),
     });
@@ -593,9 +616,14 @@ function onTokenResizeEnd(e) {
   let newScale = _tokenResize.startScale + deltaImg / TOKEN_WIDTH;
   newScale = Math.min(TOKEN_SCALE_MAX, Math.max(TOKEN_SCALE_MIN, newScale));
 
-  const existing = tokensMap.get(tokenKey(currentFloorId, _tokenResize.uid));
+  const existing = placedTokens.find(p => p.uid === _tokenResize.uid);
   if (existing) {
-    setToken(currentFloorId, _tokenResize.uid, { ...existing, scale: newScale });
+    setToken(currentFloorId, _tokenResize.uid, {
+      charId: existing.charId,
+      x: existing.x,
+      y: existing.y,
+      scale: newScale,
+    });
   }
 
   _tokenResize.active = false;
