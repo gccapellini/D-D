@@ -283,9 +283,22 @@ function fitToViewport() {
   applyTransform();
 }
 
+function clampPanToBounds() {
+  const scaledW = _view.imgW * _view.zoom;
+  const scaledH = _view.imgH * _view.zoom;
+  const minPanX = Math.min(0, _view.vpW - scaledW);
+  const maxPanX = Math.max(0, _view.vpW - scaledW);
+  const minPanY = Math.min(0, _view.vpH - scaledH);
+  const maxPanY = Math.max(0, _view.vpH - scaledH);
+
+  _view.panX = Math.max(minPanX, Math.min(maxPanX, _view.panX));
+  _view.panY = Math.max(minPanY, Math.min(maxPanY, _view.panY));
+}
+
 function applyTransform() {
   sceneEl.style.width  = _view.imgW + 'px';
   sceneEl.style.height = _view.imgH + 'px';
+  clampPanToBounds();
   sceneEl.style.transform =
     `translate(${_view.panX}px, ${_view.panY}px) scale(${_view.zoom})`;
 }
