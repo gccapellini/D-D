@@ -23,6 +23,58 @@ import { WebrtcProvider } from 'https://esm.sh/y-webrtc@10.3.0?deps=yjs@13.6.31'
 const ROOM_NAME     = 'pok-dnd-price-of-knowledge-scene-tokens-v1';
 const ROOM_PASSWORD = 'ravens-and-runeblades';
 
+/* ─────────────────────────────────────────────────────
+   MASTER-ONLY ENEMY ROSTER
+   The enemy tray stays hidden behind a password prompt so
+   players glancing at the screen don't see spoilers. Only
+   the SHA-256 hash lives in this file — never the plain
+   password — so a quick "view source" doesn't reveal it.
+
+   ⚠️ Read this honestly: this is a *spoiler* gate, not real
+   security. The site is 100% public and static — the enemy
+   images/names still exist as plain files anyone could find
+   by digging through the repo or browser network tab. It
+   stops a player from casually seeing the roster; it does
+   NOT stop someone determined to look. Once an enemy token
+   is actually placed on the map, everyone sees it normally
+   (that part syncs live, same as heroes) — that's the
+   "revealed to everyone" behavior you asked for.
+
+   To set your own password: open this page, open the
+   browser console (F12), and run:
+     await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sua-senha'))
+       .then(b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join(''))
+   then paste the result below.
+───────────────────────────────────────────────────────── */
+const MASTER_PASSWORD_HASH = 'eb38f6b02cd6e6d5f8ceb3e56d6c7d4f51fec445bcd2e141f28948dd0dc81f8a';
+const MASTER_UNLOCK_KEY = 'pok_master_unlocked';
+let masterUnlocked = localStorage.getItem(MASTER_UNLOCK_KEY) === '1';
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function promptMasterUnlock() {
+  const pw = prompt('Senha do Mestre:');
+  if (pw == null) return;
+  const hash = await sha256Hex(pw.trim());
+  if (hash === MASTER_PASSWORD_HASH) {
+    masterUnlocked = true;
+    localStorage.setItem(MASTER_UNLOCK_KEY, '1');
+    renderTokenTray();
+  } else {
+    alert('Senha incorreta.');
+  }
+}
+
+function relockMaster(e) {
+  e.stopPropagation();
+  masterUnlocked = false;
+  localStorage.removeItem(MASTER_UNLOCK_KEY);
+  renderTokenTray();
+}
+
 
 /* ─────────────────────────────────────────────────────
    DATA
@@ -43,6 +95,25 @@ const TOKENS = [
   { id: "judy",  name: "Judy Hops", img: "token_judy.png",  color: "#c8a02e" },
   { id: "gor", name: "Gor",     img: "token_gor.png", color: "#c0503a" },
 ];
+
+/* Inimigos / criaturas de combate desta dungeon.
+   Sem arte pronta ainda? Sem problema — sem o campo `img`,
+   o token aparece como um "monograma" colorido (inicial do
+   nome). Assim que tiver o PNG, é só adicionar
+   `img: "token_monge.png"` (por exemplo) que ele passa a
+   usar a imagem automaticamente, igual os heróis. */
+const ENEMIES = [
+  { id: "monge",          name: "Monge",              img: "token_monge.png",          color: "#8a2f2f" },
+  { id: "dragao_marmore", name: "Dragão de Mármore",  img: "token_dragao_marmore.png",  color: "#9c8a5a" },
+  { id: "elfo_angelical", name: "Elfo Angelical",     img: "token_elfo_angelical.png",  color: "#d8c96a" },
+  { id: "anjo_caido",     name: "Anjo Caído",         img: "token_anjo_caido.png",      color: "#5a1f3a" },
+  { id: "guardiao",       name: "Guardião",           img: "token_guardiao.png",        color: "#55545f" },
+];
+
+// Registro único usado para localizar qualquer token (herói ou
+// inimigo) por id, sem precisar duplicar essa lógica em todo canto.
+const ALL_CHARS = [...TOKENS, ...ENEMIES];
+function findChar(charId) { return ALL_CHARS.find(c => c.id === charId); }
 
 const TOKEN_WIDTH = 70; // px, in map-image space — tweak to taste
 const TOKEN_SCALE_MIN = 0.4;
@@ -100,7 +171,7 @@ const hintEl          = ensureHintEl();
 function ensureGhostEl() {
   const el = document.createElement('div');
   el.id = 'dragGhost';
-  el.innerHTML = '<img id="dragGhostImg" src="" alt="" />';
+  el.innerHTML = '<img id="dragGhostImg" src="" alt="" /><div id="dragGhostMono"></div>';
   document.body.appendChild(el);
   return el;
 }
@@ -246,13 +317,32 @@ function screenToImage(clientX, clientY) {
 /* ─────────────────────────────────────────────────────
    TOKEN TRAY
 ───────────────────────────────────────────────────────── */
-function renderTokenTray() {
-  tokenTrayEl.innerHTML = TOKENS.map(t => `
+function trayTokenCard(t) {
+  const visual = t.img
+    ? `<img class="tray-token-img" src="${t.img}" alt="${t.name}" draggable="false" />`
+    : `<div class="tray-token-mono">${t.name.trim().charAt(0)}</div>`;
+  return `
     <div class="tray-token" data-char="${t.id}" style="--tok-color:${t.color}">
-      <img class="tray-token-img" src="${t.img}" alt="${t.name}" draggable="false" />
+      ${visual}
       <div class="tray-token-name">${t.name}</div>
     </div>
-  `).join('');
+  `;
+}
+
+function renderTokenTray() {
+  const enemySection = masterUnlocked
+    ? `<div class="tray-section">${ENEMIES.map(trayTokenCard).join('')}</div>`
+    : `<button class="master-unlock-btn" id="masterUnlockBtn">🔒 Área do Mestre</button>`;
+
+  tokenTrayEl.innerHTML = `
+    <div class="tray-section-title">Heróis</div>
+    <div class="tray-section">${TOKENS.map(trayTokenCard).join('')}</div>
+    <div class="tray-section-title tray-section-title-enemy">
+      Inimigos
+      ${masterUnlocked ? '<span class="master-relock" id="masterRelock" title="Ocultar de novo">🔓</span>' : ''}
+    </div>
+    ${enemySection}
+  `;
 
   tokenTrayEl.querySelectorAll('.tray-token').forEach(el => {
     el.addEventListener('pointerdown', e => {
@@ -260,6 +350,12 @@ function renderTokenTray() {
       startTrayDrag(el.dataset.char, e.clientX, e.clientY);
     });
   });
+
+  const unlockBtn = document.getElementById('masterUnlockBtn');
+  if (unlockBtn) unlockBtn.addEventListener('click', promptMasterUnlock);
+
+  const relockBtn = document.getElementById('masterRelock');
+  if (relockBtn) relockBtn.addEventListener('click', relockMaster);
 }
 
 /* ─────────────────────────────────────────────────────
@@ -267,15 +363,38 @@ function renderTokenTray() {
 ───────────────────────────────────────────────────────── */
 function renderPlacedTokens() {
   tokenLayerEl.innerHTML = '';
-  placedTokens.forEach(p => tokenLayerEl.appendChild(buildTokenEl(p)));
+  const displayNames = computeDisplayNames(placedTokens);
+  placedTokens.forEach(p => tokenLayerEl.appendChild(buildTokenEl(p, displayNames[p.uid])));
   hintEl.style.display = placedTokens.length ? 'none' : 'block';
 }
 
-function buildTokenEl(placed) {
-  const char = TOKENS.find(t => t.id === placed.charId);
+// If more than one token of the same character is on the floor
+// (e.g. three "Monge"s), label them "Monge 1", "Monge 2", ... in
+// the order they were placed. A lone token just keeps its plain name.
+function computeDisplayNames(list) {
+  const byChar = {};
+  list.slice().sort((a, b) => a.uid.localeCompare(b.uid)).forEach(p => {
+    (byChar[p.charId] ??= []).push(p.uid);
+  });
+  const names = {};
+  list.forEach(p => {
+    const char = findChar(p.charId);
+    if (!char) return;
+    const group = byChar[p.charId];
+    names[p.uid] = group.length > 1 ? `${char.name} ${group.indexOf(p.uid) + 1}` : char.name;
+  });
+  return names;
+}
+
+function buildTokenEl(placed, displayName) {
+  const char = findChar(placed.charId);
   if (!char) return document.createComment('unknown token');
 
   const scale = placed.scale ?? TOKEN_SCALE_DEFAULT;
+  const name = displayName || char.name;
+  const visual = char.img
+    ? `<img src="${char.img}" alt="${char.name}" draggable="false" />`
+    : `<div class="map-token-mono">${char.name.trim().charAt(0)}</div>`;
 
   const el = document.createElement('div');
   el.className = 'map-token';
@@ -287,8 +406,8 @@ function buildTokenEl(placed) {
   el.style.top  = placed.y + 'px';
   el.style.zIndex = Math.round(placed.y);
   el.innerHTML = `
-    <div class="map-token-name">${char.name}</div>
-    <img src="${char.img}" alt="${char.name}" draggable="false" />
+    <div class="map-token-name">${name}</div>
+    ${visual}
     <div class="token-resize-handle" title="Arrastar para redimensionar"></div>
   `;
 
@@ -322,12 +441,23 @@ function removeToken(uid) {
    DRAG A NEW TOKEN FROM THE TRAY
 ───────────────────────────────────────────────────────── */
 function startTrayDrag(charId, clientX, clientY) {
-  const char = TOKENS.find(t => t.id === charId);
+  const char = findChar(charId);
   if (!char) return;
   _tokenDrag.active = true;
   _tokenDrag.charId = charId;
 
-  document.getElementById('dragGhostImg').src = char.img;
+  const ghostImg = document.getElementById('dragGhostImg');
+  const ghostMono = document.getElementById('dragGhostMono');
+  if (char.img) {
+    ghostImg.src = char.img;
+    ghostImg.style.display = 'block';
+    ghostMono.style.display = 'none';
+  } else {
+    ghostImg.style.display = 'none';
+    ghostMono.textContent = char.name.trim().charAt(0);
+    ghostMono.style.setProperty('--tok-color', char.color);
+    ghostMono.style.display = 'flex';
+  }
   ghostEl.style.display = 'block';
   positionGhost(clientX, clientY);
 

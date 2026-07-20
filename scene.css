@@ -208,6 +208,57 @@ html, body {
   align-items: center;
 }
 
+.tray-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.tray-section-title {
+  align-self: stretch;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: .52rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  opacity: .8;
+  margin: 18px 0 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.tray-section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.tray-section-title-enemy { color: #c96a5a; }
+.master-relock {
+  cursor: pointer;
+  margin-left: 6px;
+  opacity: .7;
+  transition: opacity .15s, transform .15s;
+}
+.master-relock:hover { opacity: 1; transform: scale(1.15); }
+
+.master-unlock-btn {
+  font-family: 'Cinzel', serif;
+  font-size: .58rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: rgba(210,190,150,.75);
+  background: rgba(200,100,90,.08);
+  border: 1px dashed rgba(200,100,90,.4);
+  border-radius: 6px;
+  padding: 10px 6px;
+  width: 84px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.4;
+  transition: background .15s, border-color .15s;
+}
+.master-unlock-btn:hover {
+  background: rgba(200,100,90,.16);
+  border-color: rgba(200,100,90,.7);
+}
+
 .tray-token {
   display: flex;
   flex-direction: column;
@@ -227,6 +278,23 @@ html, body {
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 0 5px var(--tok-color, rgba(200,168,75,.5)));
+}
+
+/* Fallback for tokens without art yet — a simple colored
+   monogram badge with the character's first letter. */
+.tray-token-mono {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  color: rgba(10,8,4,.85);
+  background: var(--tok-color, #8a2f2f);
+  box-shadow: 0 0 6px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.15);
+  user-select: none;
 }
 
 .tray-token-name {
@@ -250,7 +318,8 @@ html, body {
 }
 .map-token.dragging { cursor: grabbing; opacity: .85; }
 
-.map-token img {
+.map-token img,
+.map-token-mono {
   display: block;
   width: calc(var(--tok-width, 130px) * var(--tok-scale, 1));
   height: auto;
@@ -261,11 +330,28 @@ html, body {
   transition: filter .15s;
 }
 .map-token:hover img,
-.map-token.dragging img {
+.map-token.dragging img,
+.map-token:hover .map-token-mono,
+.map-token.dragging .map-token-mono {
   filter: drop-shadow(0 0 12px var(--tok-color, rgba(200,168,75,.9)))
           drop-shadow(0 3px 5px rgba(0,0,0,.6));
 }
-.map-token.resizing img { transition: none; }
+.map-token.resizing img,
+.map-token.resizing .map-token-mono { transition: none; }
+
+.map-token-mono {
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: calc(var(--tok-width, 130px) * var(--tok-scale, 1) * .38);
+  color: rgba(10,8,4,.85);
+  background: var(--tok-color, #8a2f2f);
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.15);
+}
 
 /* ── Resize handle — bottom-right corner, drag to scale the token ── */
 .token-resize-handle {
@@ -326,6 +412,19 @@ html, body {
   width: 130px;
   height: auto;
   filter: drop-shadow(0 0 10px rgba(255,255,255,.5));
+}
+#dragGhostMono {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 2rem;
+  color: rgba(10,8,4,.85);
+  background: var(--tok-color, #8a2f2f);
+  box-shadow: 0 0 10px rgba(255,255,255,.35), inset 0 0 0 3px rgba(255,255,255,.15);
 }
 
 /* ── Hint toast ── */
