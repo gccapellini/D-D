@@ -1156,7 +1156,13 @@ function renderCodex() {
     { id:"jack",     name:"Jack",               role:"Ranger",    type:"main", desc:"Black-haired elven ranger and a long time guide for rich adventures. His fate got intertwined with the threads of destiny. Now, marked by what lies beyond the veil, he may be the one to guide them through the shadows." },
     { id:"judy",     name:"Judy Hops",          role:"Barbarian", type:"main", desc:"Harengon barbarian rescued from the horrors of the Betweenway. The horrors he witnessed there still haunt him. Now, he seeks vengeance against the mage who wronged him." },
     { id:"oruam",    name:"Oruam",              role:"Mage",      type:"main", desc:"Red-haired dwarf wizard and former apprentice of Meriadas Thorne. Keeper of the White Scales and magical artifacts, his fate was sealed by a warning from an old colleague." },
-
+    {
+  id:"gor",
+  name:"Gor",
+  role:"Monk",
+  type:"main",
+  desc:"A bugbear monk devoted to the Order of Aurelion. The party found him after the destruction of Brookhollow, where the lingering effects of a magical interrogation had left his memories shattered. As fragments of the truth returned, Gor realized that an old wizard had used him to uncover the hidden location of his temple. Now he travels with the party to discover what became of his Order."
+},
     { id:"elbren",   name:"Elbren Naerith",     role:"Mage",      type:"support", desc:"A mysterious mage whose warning set the heroes upon their fateful path. Much remains unknown about his motives, but his knowledge of the forces at work appears far greater than he lets on." },
     { id:"velvar",   name:"Velvar Duskveil",    role:"",          type:"support", desc:"A tragic figure whose sacrifice still echoes through the ages, binding together the threads of destiny." },
     { id:"meriadas", name:"Meriadas Thorne",    role:"",          type:"support", desc:"The old master whose actions set in motion a plan that would alter the fate of countless lives." },
