@@ -52,7 +52,26 @@ const SPREADS = {
     { spreadImg:"grid05.png", quadrant:1 },           // 17 — Scene IV, part 2
     { spreadImg:"grid05.png", quadrant:2 },           // 18 — Chorus IV (illus)
     { spreadImg:"grid05.png", quadrant:3, back:true },// 19 — Chorus IV (verse) + fim
-  ]
+  ],
+  // Act I, Chapter 2 — "The Last Dragon Apprentices"
+  // Art was delivered as two sprite-sheet grids (like Chapter 1),
+  // not ten standalone images:
+  //   grid_cap2_a.png = 2×2 grid → Img1, Img2, Img3, Img4
+  //   grid_cap2_b.png = 3×2 grid → Img6, Img7, Img8, Img9, Img10
+  //                     (in reading order), with Img5 in the
+  //                     bottom-right cell.
+  "1-2": [
+    { spreadImg:"grid_cap2_a.png", col:0, row:0, cols:2, rows:2 }, // 0 — Img1
+    { spreadImg:"grid_cap2_a.png", col:1, row:0, cols:2, rows:2 }, // 1 — Img2
+    { spreadImg:"grid_cap2_a.png", col:0, row:1, cols:2, rows:2 }, // 2 — Img3
+    { spreadImg:"grid_cap2_a.png", col:1, row:1, cols:2, rows:2 }, // 3 — Img4
+    { spreadImg:"grid_cap2_b.png", col:2, row:1, cols:3, rows:2 }, // 4 — Img5 (bottom-right cell)
+    { spreadImg:"grid_cap2_b.png", col:0, row:0, cols:3, rows:2 }, // 5 — Img6
+    { spreadImg:"grid_cap2_b.png", col:1, row:0, cols:3, rows:2 }, // 6 — Img7
+    { spreadImg:"grid_cap2_b.png", col:2, row:0, cols:3, rows:2 }, // 7 — Img8
+    { spreadImg:"grid_cap2_b.png", col:0, row:1, cols:3, rows:2 }, // 8 — Img9
+    { spreadImg:"grid_cap2_b.png", col:1, row:1, cols:3, rows:2, back:true }, // 9 — Img10
+  ],
 };
 
 // Legacy spread data kept for reference — not used in rendering
@@ -570,7 +589,7 @@ const DATA = {
             {id:4, name:"The Road Back",          unlocked:true},
           ]
         },
-        {id:2, title:"The Last Dragon Apprentices", unlocked:false, scenes:[]},
+        {id:2, title:"The Last Dragon Apprentices", unlocked:true, scenes:[]},
         {id:3, title:"The Island of Souls",          unlocked:false, scenes:[]},
         {id:4, title:"The Prophecy",                 unlocked:false, scenes:[]},
       ]
@@ -673,7 +692,9 @@ let S = {
 
 const chapterMusic = {
   "1-1-part1": new Audio("chapter1_part1.mp3"),
-  "1-1-part2": new Audio("chapter1_part2.mp3")
+  "1-1-part2": new Audio("chapter1_part2.mp3"),
+  "1-2-part1": new Audio(encodeURI("The Fellowship in Flame.mp3")),
+  "1-2-part2": new Audio(encodeURI("The Crystal Temple.mp3")),
 };
 const menuMusic = new Audio("menu.mp3");
 menuMusic.loop = true;
@@ -1037,19 +1058,31 @@ function renderChapter() {
 
 /* ─────────────────────────────────────────────────────
    SPREAD IMAGE RENDERER
-   Crops the correct quadrant from a 2×2 PNG grid.
-   quadrant: 0=TL 1=TR 2=BL 3=BR
+   Crops one cell out of a sprite-sheet grid image.
+   Two ways to address a cell:
+     - `quadrant` (legacy, 2×2 grids only): 0=TL 1=TR 2=BL 3=BR
+     - `col`/`row` + `cols`/`rows` (any grid size, e.g. 3×2):
+       zero-indexed column/row and the grid's total columns/rows.
 ───────────────────────────────────────────────────────── */
 function renderSpreadImg(sp, act, chapter) {
-  const q   = sp.quadrant;        // 0=TL 1=TR 2=BL 3=BR
-  const col = q % 2;              // 0=left, 1=right
-  const row = Math.floor(q / 2); // 0=top,  1=bottom
+  let col, row, cols, rows;
+  if (sp.quadrant !== undefined) {
+    cols = 2; rows = 2;
+    col = sp.quadrant % 2;              // 0=left, 1=right
+    row = Math.floor(sp.quadrant / 2);  // 0=top,  1=bottom
+  } else {
+    cols = sp.cols; rows = sp.rows;
+    col = sp.col;   row = sp.row;
+  }
 
   // Strategy: inject a single full-bleed overlay div directly into .book-open
   // (position:relative) that sits on top of everything — pages, binding, all.
-  // The overlay uses background-size:200% 200% to crop the correct quadrant.
-  const bpX = col === 0 ? '0%' : '100%';
-  const bpY = row === 0 ? '0%' : '100%';
+  // background-size is cols×100% / rows×100% so each grid cell fills the
+  // overlay exactly; background-position picks out which cell shows.
+  const bgSizeX = (cols * 100) + '%';
+  const bgSizeY = (rows * 100) + '%';
+  const bpX = cols > 1 ? ((col / (cols - 1)) * 100) + '%' : '0%';
+  const bpY = rows > 1 ? ((row / (rows - 1)) * 100) + '%' : '0%';
 
   // Clear any leftover overlay
   const old = bookOpen_el.querySelector('.spread-overlay');
@@ -1065,7 +1098,7 @@ function renderSpreadImg(sp, act, chapter) {
     inset: 0;
     z-index: 20;
     background-image: url('${sp.spreadImg}');
-    background-size: 200% 200%;
+    background-size: ${bgSizeX} ${bgSizeY};
     background-repeat: no-repeat;
     background-position: ${bpX} ${bpY};
     border-radius: 5px;
@@ -1098,6 +1131,14 @@ function musicTrigger() {
       playMusic("1-1-part1");
     } else {
       playMusic("1-1-part2");
+    }
+  } else if (S.actId === 1 && S.chapterId === 2) {
+    // índices 0–4 = Img1..Img5  → The Fellowship in Flame
+    // índices 5–9 = Img6..Img10 → The Crystal Temple
+    if (S.spreadIdx <= 4) {
+      playMusic("1-2-part1");
+    } else {
+      playMusic("1-2-part2");
     }
   }
 }
@@ -1156,13 +1197,8 @@ function renderCodex() {
     { id:"jack",     name:"Jack",               role:"Ranger",    type:"main", desc:"Black-haired elven ranger and a long time guide for rich adventures. His fate got intertwined with the threads of destiny. Now, marked by what lies beyond the veil, he may be the one to guide them through the shadows." },
     { id:"judy",     name:"Judy Hops",          role:"Barbarian", type:"main", desc:"Harengon barbarian rescued from the horrors of the Betweenway. The horrors he witnessed there still haunt him. Now, he seeks vengeance against the mage who wronged him." },
     { id:"oruam",    name:"Oruam",              role:"Mage",      type:"main", desc:"Red-haired dwarf wizard and former apprentice of Meriadas Thorne. Keeper of the White Scales and magical artifacts, his fate was sealed by a warning from an old colleague." },
-    {
-  id:"gor",
-  name:"Gor",
-  role:"Monk",
-  type:"main",
-  desc:"A bugbear monk devoted to the Order of Aurelion. The party found him after the destruction of Brookhollow, where the lingering effects of a magical interrogation had left his memories shattered. As fragments of the truth returned, Gor realized that an old wizard had used him to uncover the hidden location of his temple. Now he travels with the party to discover what became of his Order."
-},
+    { id:"gor", name: "Gor", role: "Monk", type: "main", 
+      desc: "A monk from the Order of Aurelion. His path crossed with the heroes during the burning of Lowbrook. After the fire, he remembered the interrogation from Meriadas, unveiling the location of the Temple of Aurelion. He joined the group to track the old mage while the shadow of doubt grew over his mind: could his weakness be the end of his order?" },
     { id:"elbren",   name:"Elbren Naerith",     role:"Mage",      type:"support", desc:"A mysterious mage whose warning set the heroes upon their fateful path. Much remains unknown about his motives, but his knowledge of the forces at work appears far greater than he lets on." },
     { id:"velvar",   name:"Velvar Duskveil",    role:"",          type:"support", desc:"A tragic figure whose sacrifice still echoes through the ages, binding together the threads of destiny." },
     { id:"meriadas", name:"Meriadas Thorne",    role:"",          type:"support", desc:"The old master whose actions set in motion a plan that would alter the fate of countless lives." },
