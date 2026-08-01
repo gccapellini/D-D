@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter III: The Fall of the Sacred City</title>
+<link rel="stylesheet" href="scene.css">
+</head>
+<body>
+
+  <header class="scene-topbar">
+    <a class="scene-back" href="index.html">&#8592; The Tome</a>
+    <h1 class="scene-title">The Fall of the Sacred City</h1>
+    <button class="scene-clear-btn" id="clearFloorBtn" title="Remove all tokens from this floor">Clear Tokens</button>
+    <span class="scene-sync-status" id="syncStatus">● conectando…</span>
+    <nav class="floor-tabs" id="floorTabs"></nav>
+  </header>
+
+  <main class="scene-main">
+
+    <div class="scene-viewport" id="sceneViewport">
+      <div class="scene-scene" id="sceneScene">
+        <img id="sceneMapImg" src="" alt="Dungeon floor" draggable="false" />
+        <div id="sceneTokenLayer"></div>
+      </div>
+      <div class="scene-zoom-bar">
+        <button id="sceneZoomIn" class="scene-zoom-btn">+</button>
+        <button id="sceneZoomOut" class="scene-zoom-btn">&minus;</button>
+      </div>
+    </div>
+
+    <aside class="token-tray" id="tokenTray">
+      <p class="token-tray-title">Personagens</p>
+      <div class="token-tray-list" id="tokenTrayList"></div>
+    </aside>
+
+  </main>
+
+  <script type="module" src="scene3.js"></script>
+</body>
+</html>

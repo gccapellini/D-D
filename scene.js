@@ -108,6 +108,8 @@ const TOKENS = [
   { id: "oruam", name: "Oruam",     img: "token_oruam.png", color: "#3f8fd0" },
   { id: "judy",  name: "Judy Hops", img: "token_judy.png",  color: "#c8a02e" },
   { id: "gor", name: "Gor",     img: "token_gor.png", color: "#c0503a" },
+  // Token art próprio finalmente disponível.
+  { id: "chris", name: "Chris", img: "token_chris.png", color: "#1f9e8c" },
 ];
 
 /* Inimigos / criaturas de combate desta dungeon.
