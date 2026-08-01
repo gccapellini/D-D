@@ -590,7 +590,7 @@ const DATA = {
           ]
         },
         {id:2, title:"The Last Dragon Apprentices", unlocked:true, scenes:[]},
-        {id:3, title:"The Island of Souls",          unlocked:false, scenes:[]},
+        {id:3, title:"The Fall of the Sacred City",  unlocked:true, scenes:[]},
         {id:4, title:"The Prophecy",                 unlocked:false, scenes:[]},
       ]
     },
@@ -1450,6 +1450,12 @@ const MAP_LOCATIONS = [
         title:"The Last Dragon Apprentice",
         description:"The road leads onward to a apprentice bound to a dying dragon\u2019s legacy.",
         action:{ type:"scene", href:"scene.html" }
+      },
+      {
+        id:3,
+        title:"The Fall of the Sacred City",
+        description:"A holy city falls to ruin as our heroes are judged by crimes they did not commit and set into a path between the living and the dead.",
+        action:{ type:"scene", href:"scene3.html" }
       }
     ]
   },
